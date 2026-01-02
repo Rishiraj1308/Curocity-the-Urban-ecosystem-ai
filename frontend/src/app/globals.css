@@ -1,0 +1,197 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* --- LIGHT MODE COLORS (Updated to Match Dashboard #F2F4F8) --- */
+    --background: 220 27% 96%; /* Light Grey */
+    --foreground: 0 0% 3.9%; /* Dark Text */
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    
+    --radius: 0.5rem;
+    --cursor-size: 20px;
+  }
+
+  .dark {
+    /* --- DARK MODE COLORS (Updated to Pure Black) --- */
+    --background: 0 0% 0%; /* Pure Black for OLED feel */
+    --foreground: 0 0% 98%;
+    
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 175 80% 40%; /* Electric Teal */
+    --primary-foreground: 0 0% 9%;
+    
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    
+    --accent: 35 100% 55%;  /* Deep Amber */
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 0 0% 12%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased;
+    cursor: none; /* Hide default cursor for custom one */
+  }
+}
+
+@layer utilities {
+  .animate-marquee-slow {
+      animation: marquee 60s linear infinite;
+  }
+  
+  @keyframes marquee {
+    from { transform: translateX(0%); }
+    to { transform: translateX(-100%); }
+  }
+
+  /* --- NOISE TEXTURE (Film Grain) --- */
+  .bg-noise {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  /* --- CUSTOM CURSOR --- */
+  .custom-cursor {
+    @apply fixed top-0 left-0 bg-foreground mix-blend-difference pointer-events-none z-[100] rounded-full flex items-center justify-center;
+    width: var(--cursor-size);
+    height: var(--cursor-size);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s, background-color 0.3s;
+  }
+  .custom-cursor.hovered {
+    width: 80px;
+    height: 80px;
+    background-color: var(--primary); /* Hover pe primary color */
+    opacity: 0.5;
+  }
+
+  /* --- SCROLLBAR HIDE --- */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* --- MAP ROUTE ANIMATION (Optional) --- */
+  .animate-route-flow {
+    stroke-dasharray: 10 10;
+    animation: flow-animation 1s linear infinite;
+  }
+
+  @keyframes flow-animation {
+    from { stroke-dashoffset: 20; }
+    to { stroke-dashoffset: 0; }
+  }
+}
+
+/* --- SMOOTH THEME TRANSITION MAGIC --- */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 300ms; 
+  transition-timing-function: ease-in-out;
+}
+
+.no-transition * {
+  transition: none !important;
+}
+
+/* ========================================= */
+/* 🚀 MODERN MAP ELEMENTS (Added for new Map) */
+/* ========================================= */
+
+/* 1. Pulsing Dot (User Location) */
+.user-location-dot {
+  background-color: #3b82f6; /* Blue-500 */
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+.user-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background-color: rgba(59, 130, 246, 0.4); /* Blue with opacity */
+  border-radius: 50%;
+  animation: pulse-ring 2s infinite;
+  z-index: 1; /* Ring sits below the dot */
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+/* 2. Destination Pin Shadow */
+.destination-pin {
+  filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.4));
+  transition: transform 0.2s;
+}
+
+.destination-pin:hover {
+  transform: scale(1.1) translateY(-2px);
+}

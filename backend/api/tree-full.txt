@@ -1,0 +1,17 @@
+.
+./tsconfig.json
+./tree-full.txt
+./src
+./src/utils
+./src/utils/firebaseAdmin.ts
+./src/main.ts
+./src/routes
+./src/routes/ride.routes.ts
+./src/services
+./src/services/ride.service.ts
+./vercel.json
+./tree.txt
+./tsconfig.old.json
+./index.ts
+./package-lock.json
+./package.json

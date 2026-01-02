@@ -1,0 +1,41 @@
+
+/home/user/studio
+├── .dockerignore
+├── .env
+├── .env.example
+├── .eslintrc.json
+├── .firebaserc
+├── .git
+├── .gitignore
+├── .idx
+├── .modified
+├── .nvmrc
+├── Dockerfile
+├── README.md
+├── android
+├── app
+├── assets
+├── backend
+├── docs
+├── firebase-debug.log
+├── firebase.json
+├── firestore.indexes.json
+├── firestore.rules
+├── frontend
+├── functions
+├── node_modules
+├── package-lock.json
+├── package.json
+├── patches
+├── prisma
+├── project-tree.txt
+├── src
+├── storage.rules
+├── tree.txt
+└── tsconfig.backup.json
+
+directory: 13 file: 20
+
+
+
+[2K[1G

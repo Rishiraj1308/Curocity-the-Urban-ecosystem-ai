@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Home, History, Wallet, User, LifeBuoy, Sun, Moon, Languages, MessageSquare, Shield, LogOut, ChevronDown } from 'lucide-react';
+import { Home, History, Wallet, User, LifeBuoy, Sun, Moon, Languages, LogOut, ChevronDown, MessageSquare, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BrandLogo from '@/components/shared/brand-logo';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -36,11 +36,34 @@ const navItems = [
     { href: '/user/support', label: 'Support', icon: LifeBuoy },
 ]
 
+// 🔥 UI: DYNAMIC ANIMATED BACKGROUND (Pehle Jaisa - Moving Blobs)
+const DeepBackground = ({ isDark }: { isDark: boolean }) => (
+    <div className={cn("fixed inset-0 z-[-1] overflow-hidden pointer-events-none transition-colors duration-700", isDark ? "bg-[#050505]" : "bg-[#F5F7FA]")}>
+        
+        {/* Blob 1: Top Right (Floating) */}
+        <motion.div 
+            animate={{ x: [0, 50, 0], y: [0, -50, 0], scale: [1, 1.1, 1] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+            className={cn("absolute top-[-10%] right-[-10%] w-[800px] h-[800px] rounded-full blur-[150px] opacity-20 transition-colors duration-700", isDark ? "bg-blue-900" : "bg-blue-300")} 
+        />
+        
+        {/* Blob 2: Bottom Left (Floating) */}
+        <motion.div 
+            animate={{ x: [0, -50, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+            className={cn("absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[150px] opacity-20 transition-colors duration-700", isDark ? "bg-purple-900" : "bg-purple-300")} 
+        />
+        
+        {/* Texture */}
+        <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
+    </div>
+)
+
 // --- COMPONENTS ---
 function LanguageToggle() {
     const { setLanguage, language } = useLanguage()
     return (
-        <Button variant="ghost" size="icon" onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')} className="rounded-full w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all">
+        <Button variant="ghost" size="icon" onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')} className="rounded-full w-9 h-9 text-foreground/70 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90">
             <Languages className="h-4 w-4" />
         </Button>
     )
@@ -49,7 +72,7 @@ function LanguageToggle() {
 function ThemeToggle() {
     const { theme, setTheme } = useTheme()
     return (
-      <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="rounded-full w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all relative">
+      <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="rounded-full w-9 h-9 text-foreground/70 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-90 relative">
         <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
         <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         <span className="sr-only">Toggle theme</span>
@@ -62,12 +85,12 @@ function UserLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isUserLoading, db, auth } = useFirebase();
+  const { theme } = useTheme();
 
   const isMapPage = pathname === '/user/ride-map';
   const showGlobalUI = !isMapPage;
-
-  // 🔥 LOGIC: Check if we are on the Ride Booking Page
   const isRideBooking = pathname?.includes('/ride-booking');
+  const isDark = theme === 'dark';
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -94,18 +117,22 @@ function UserLayoutContent({ children }: { children: React.ReactNode }) {
     return names.length > 1 ? names[0][0] + names[1][0] : name.substring(0, 2);
   }
 
+  // Header Animation: Smooth Slide Down
   const headerVariants = {
-    hidden: { y: -100, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100, damping: 20 } }
+    hidden: { y: -40, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 80, damping: 15 } }
   };
 
-  if (isUserLoading || !isMounted) return <div className="h-screen w-full bg-[#F2F4F8] dark:bg-black" />;
-  if(!user) return <div className="h-screen flex items-center justify-center"><Skeleton className="h-screen w-full" /></div>;
+  if (isUserLoading || !isMounted) return <div className="h-screen w-full bg-[#F5F7FA] dark:bg-[#050505]" />;
+  if(!user) return <div className="h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#050505]"><Skeleton className="h-screen w-full bg-black/5 dark:bg-white/5" /></div>;
   
   return (
-    <div className="h-full min-h-screen antialiased text-foreground !bg-[#F2F4F8] dark:!bg-black font-sans relative overflow-hidden transition-colors duration-300">
+    <div className={cn("h-full min-h-screen antialiased font-sans relative overflow-hidden transition-colors duration-300", isDark ? "text-white" : "text-neutral-900")}>
         
-        {/* GLOBAL HEADER */}
+        {/* GLOBAL BACKGROUND (With Animation) */}
+        <DeepBackground isDark={isDark} />
+
+        {/* 🔥 HEADER: FULLY TRANSPARENT (No Blur) */}
         <AnimatePresence>
         {showGlobalUI && (
              <motion.header 
@@ -113,71 +140,74 @@ function UserLayoutContent({ children }: { children: React.ReactNode }) {
                 initial="hidden"
                 animate="visible"
                 exit="hidden"
-                // 🔥 FIX: Agar 'isRideBooking' hai toh Transparent, warna normal Glassy/White
                 className={cn(
-                  "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-                  isRideBooking 
-                    ? "bg-transparent border-none" // Ride page pe Transparent
-                    : "bg-[#F2F4F8]/80 dark:bg-black/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5" // Normal pages pe Solid/Glass
+                  "fixed top-0 left-0 right-0 z-50 w-full px-6 py-6 transition-all duration-500 bg-transparent", 
+                  isRideBooking ? "opacity-0 pointer-events-none" : "opacity-100"
                 )}
              >
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <nav className="flex items-center justify-between h-16">
-                        
-                        {/* LEFT: BRAND */}
-                        <Link href="/user" className="flex items-center gap-3 group">
-                            <BrandLogo size="md" withText={true} />
-                        </Link>
+                <div className="mx-auto max-w-7xl flex items-center justify-between">
+                    
+                    {/* LEFT: LOGO */}
+                    <Link href="/user" className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
+                        <BrandLogo size="md" withText={true} />
+                    </Link>
 
-                        {/* RIGHT: ACTIONS */}
-                        <div className="flex items-center gap-1 sm:gap-2">
-                            <ThemeToggle />
-                            <LanguageToggle />
-                            <div className="h-5 w-[1px] bg-gray-300 dark:bg-white/10 mx-2" />
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <button className="flex items-center gap-2 pl-1 pr-1 py-1 rounded-full hover:bg-white/50 dark:hover:bg-white/5 transition-all outline-none">
-                                    <Avatar className="h-8 w-8 border border-gray-300/50 dark:border-white/10 shadow-sm">
-                                        <AvatarImage src={user?.photoURL || undefined} className="object-cover" />
-                                        <AvatarFallback className="text-xs bg-gray-200 dark:bg-neutral-800 font-medium text-gray-600 dark:text-gray-300">{getInitials(user?.displayName)}</AvatarFallback>
-                                    </Avatar>
-                                    <ChevronDown className="w-3 h-3 text-gray-400 hidden sm:block" />
-                                  </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-gray-200 dark:border-white/10 shadow-xl bg-white dark:bg-[#111]">
-                                <DropdownMenuLabel className="font-normal px-2 py-1.5">
-                                    <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{user?.displayName}</p>
-                                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                                    </div>
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator className="bg-gray-100 dark:bg-white/5" />
-                                {navItems.map(item => (
-                                    <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className="rounded-lg cursor-pointer text-gray-600 dark:text-gray-300 focus:bg-cyan-50 dark:focus:bg-cyan-950/30 focus:text-cyan-600 dark:focus:text-cyan-400">
-                                        <item.icon className="w-4 h-4 mr-2 opacity-70"/> {item.label}
+                    {/* RIGHT: FLOATING PILL */}
+                    <div className={cn(
+                        "flex items-center gap-1 p-1 pl-2 rounded-full border transition-all",
+                        // Very subtle background to ensure visibility without looking blocked
+                        isDark ? "bg-white/5 border-white/5 text-white" : "bg-white/40 border-black/5 text-neutral-900"
+                    )}>
+                        <ThemeToggle />
+                        <LanguageToggle />
+                        <div className={cn("h-5 w-[1px] mx-1", isDark ? "bg-white/10" : "bg-black/10")} />
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-2 rounded-full transition-all outline-none active:scale-95">
+                                <Avatar className={cn("h-9 w-9 border shadow-sm", isDark ? "border-white/10" : "border-black/5")}>
+                                    <AvatarImage src={user?.photoURL || undefined} className="object-cover" />
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-cyan-500 to-blue-600 font-bold text-white">{getInitials(user?.displayName)}</AvatarFallback>
+                                </Avatar>
+                              </button>
+                          </DropdownMenuTrigger>
+                          
+                          <DropdownMenuContent align="end" className={cn("w-56 p-2 rounded-2xl border shadow-2xl backdrop-blur-xl", isDark ? "bg-[#111]/90 border-white/10 text-white" : "bg-white/95 border-black/5 text-neutral-900")}>
+                            <DropdownMenuLabel className="font-normal px-2 py-1.5">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-bold">{user?.displayName}</p>
+                                    <p className={cn("text-xs truncate", isDark ? "text-white/50" : "text-black/50")}>{user?.email}</p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator className={isDark ? "bg-white/10" : "bg-black/5"} />
+                            
+                            {navItems.map(item => (
+                                <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)} className={cn("rounded-lg cursor-pointer", isDark ? "text-white/80 focus:bg-cyan-500/20 focus:text-cyan-400" : "text-neutral-700 focus:bg-cyan-50 focus:text-cyan-600")}>
+                                    <item.icon className="w-4 h-4 mr-2 opacity-70"/> {item.label}
+                                </DropdownMenuItem>
+                            ))}
+                            
+                            <DropdownMenuSeparator className={isDark ? "bg-white/10" : "bg-black/5"} />
+                            
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className={cn("rounded-lg cursor-pointer text-red-500", isDark ? "focus:bg-red-500/20" : "focus:bg-red-50")}>
+                                        <LogOut className="w-4 h-4 mr-2"/> Logout
                                     </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuSeparator className="bg-gray-100 dark:bg-white/5" />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="rounded-lg cursor-pointer text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 focus:text-red-700">
-                                            <LogOut className="w-4 h-4 mr-2"/> Logout
-                                        </DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Log out?</AlertDialogTitle>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white">Logout</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </nav>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className={cn("border", isDark ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/5 text-neutral-900")}>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Log out?</AlertDialogTitle>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className={cn("border", isDark ? "bg-transparent border-white/10 text-white hover:bg-white/10" : "bg-transparent border-black/10 text-black hover:bg-black/5")}>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white">Logout</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </motion.header>
         )}
@@ -191,28 +221,26 @@ function UserLayoutContent({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                // 🔥 FIX: Agar Ride Booking page hai, toh padding 'pt-0' hogi (Header ke upar chadhega)
-                // Baaki pages par 'pt-[70px]' rahega
-                className={cn(showGlobalUI ? (isRideBooking ? 'pt-0 pb-32' : 'pt-[70px] pb-32') : 'h-full')}
+                className={cn(showGlobalUI ? (isRideBooking ? 'pt-0 pb-32' : 'pt-24 pb-32') : 'h-full')}
             >
             {children}
             </motion.main>
         </AnimatePresence>
 
-        {/* --- BOTTOM NAV (Chupa diya Ride Page par) --- */}
+        {/* --- BOTTOM NAV & FABs (Floating) --- */}
         {showGlobalUI && !isRideBooking && (
             <>
                 <div className="fixed bottom-24 right-5 z-40 flex flex-col items-center gap-3">
-                    <Button size="icon" className="h-12 w-12 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:scale-105 transition-transform hover:bg-gray-50">
+                    <Button size="icon" className={cn("h-12 w-12 rounded-full border shadow-lg hover:scale-105 transition-transform backdrop-blur-md", isDark ? "border-white/10 bg-[#111]/80 text-white hover:bg-white/10" : "border-black/5 bg-white/80 text-neutral-800 hover:bg-white")}>
                       <MessageSquare className="h-5 w-5" />
                     </Button>
-                    <Button size="icon" className="h-12 w-12 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:scale-105 transition-transform hover:bg-gray-50">
+                    <Button size="icon" className={cn("h-12 w-12 rounded-full border shadow-lg hover:scale-105 transition-transform backdrop-blur-md", isDark ? "border-white/10 bg-[#111]/80 text-white hover:bg-white/10" : "border-black/5 bg-white/80 text-neutral-800 hover:bg-white")}>
                       <Shield className="h-5 w-5" />
                     </Button>
                 </div>
 
                 <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-[360px] px-4">
-                    <nav className="flex items-center justify-between px-3 h-[68px] rounded-[2.5rem] bg-white/95 dark:bg-[#111]/95 text-gray-500 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-black/50">
+                    <nav className={cn("flex items-center justify-between px-3 h-[72px] rounded-[2.5rem] backdrop-blur-2xl border shadow-xl transition-all duration-500", isDark ? "bg-[#050505]/80 border-white/10 shadow-black/50" : "bg-white/80 border-white/40 shadow-black/5")}>
                       {navItems.map((item) => {
                           const isActive = pathname === item.href;
                           return (
@@ -222,12 +250,12 @@ function UserLayoutContent({ children }: { children: React.ReactNode }) {
                                 className={cn(
                                   "relative flex flex-col items-center justify-center w-14 h-14 rounded-full transition-all duration-300",
                                   isActive 
-                                    ? "text-cyan-600 dark:text-cyan-400 -translate-y-1" 
-                                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                                    ? "text-cyan-500 -translate-y-1" 
+                                    : (isDark ? "text-white/40 hover:text-white/80" : "text-black/40 hover:text-black/70")
                                 )}
                               >
                                 {isActive && (
-                                    <motion.div layoutId="nav-pill" className="absolute inset-0 bg-cyan-50 dark:bg-cyan-500/10 rounded-full" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
+                                    <motion.div layoutId="nav-pill" className={cn("absolute inset-0 rounded-full border", isDark ? "bg-cyan-500/10 border-cyan-500/20" : "bg-cyan-50 border-cyan-100")} transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
                                 )}
                                 <item.icon className={cn("w-6 h-6 z-10 transition-all", isActive ? "stroke-[2.5px]" : "stroke-2")} />
                                 <span className={cn("text-[9px] mt-1 z-10 font-bold tracking-wide transition-all", isActive ? "opacity-100" : "opacity-0 h-0 hidden")}>{item.label}</span>

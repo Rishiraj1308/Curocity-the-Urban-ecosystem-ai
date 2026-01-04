@@ -1,169 +1,360 @@
-
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { 
-  motion, 
-  AnimatePresence, 
-  useMotionTemplate, 
-  useMotionValue 
-} from 'framer-motion'
-import { 
-  Loader2, ArrowRight, Mail, Lock, Phone, User, Calendar, Chrome, ArrowLeft, Sun, Moon
-} from 'lucide-react'
+import emailjs from '@emailjs/browser'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Loader2, Mail, Lock, User, Calendar, Phone, CheckSquare, Square, ArrowRight, Sun, Moon, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-// ✅ FIREBASE IMPORTS UPDATED
+// ✅ FIREBASE IMPORTS
 import { useFirebase } from '@/lib/firebase/client-provider'
-import { setDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore'
+import { setDoc, doc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
 import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPhoneNumber, 
-  RecaptchaVerifier, 
   GoogleAuthProvider, 
   signInWithPopup, 
-  updateProfile, // 🔥 ADDED
-  type User as FirebaseUser,
-  type ConfirmationResult 
+  signInWithPhoneNumber, 
+  RecaptchaVerifier,     
+  onAuthStateChanged
 } from 'firebase/auth'
 
-// --- 1. VISUAL COMPONENTS ---
+// ---------------- CONFIG ----------------
+const EMAILJS_SERVICE_ID = "service_ncyejsj";      
+const EMAILJS_TEMPLATE_ID = "template_za97107";    
+const EMAILJS_PUBLIC_KEY = "3YzxeXnnP9zraknVb"; 
+// ----------------------------------------
 
-const NoiseOverlay = () => (
-    <div className="fixed inset-0 z-[0] pointer-events-none opacity-[0.03] mix-blend-overlay">
-        <svg className="w-full h-full">
-            <filter id="noise">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#noise)" />
-        </svg>
+// 🔥 UI: DEEP BACKGROUND (Fixed Scrolling)
+const DeepBackground = ({ isDark }: { isDark: boolean }) => (
+    <div className={cn("fixed inset-0 z-0 overflow-hidden pointer-events-none transition-colors duration-700", isDark ? "bg-[#050505]" : "bg-[#f2f4f7]")}>
+        <div className={cn("absolute top-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full blur-[180px] opacity-20", isDark ? "bg-blue-900" : "bg-blue-200")} />
+        <div className={cn("absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full blur-[150px] opacity-20", isDark ? "bg-purple-900" : "bg-purple-200")} />
+        <div className="absolute inset-0 opacity-[0.04] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
     </div>
 )
 
-// --- IMPROVED CARD (BETTER CONTRAST) ---
-const SpotlightCard = ({ children, isDark, className = "" }: { children: React.ReactNode, isDark: boolean, className?: string }) => {
-    const divRef = useRef<HTMLDivElement>(null);
-    const position = { x: useMotionValue(0), y: useMotionValue(0) };
-    const opacity = useMotionValue(0);
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!divRef.current) return;
-        const rect = divRef.current.getBoundingClientRect();
-        position.x.set(e.clientX - rect.left);
-        position.y.set(e.clientY - rect.top);
-    };
-
-    return (
-        <div
-            ref={divRef}
-            onMouseMove={handleMouseMove}
-            onMouseEnter={() => opacity.set(1)}
-            onMouseLeave={() => opacity.set(0)}
-            className={cn(
-                "relative rounded-3xl overflow-hidden transition-all duration-500 backdrop-blur-md",
-                // LIGHT MODE: Pure white card with heavy shadow to pop against background
-                !isDark && "bg-white/90 border border-white/50 shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
-                // DARK MODE: Dark grey glass with white border to define edges
-                isDark && "bg-neutral-900/60 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
-                className
-            )}
-        >
-            {/* Spotlight Glow */}
-            <motion.div
-                className="pointer-events-none absolute -inset-px opacity-0 transition duration-300"
-                style={{
-                    opacity,
-                    background: useMotionTemplate`radial-gradient(600px circle at ${position.x}px ${position.y}px, ${isDark ? 'rgba(6, 182, 212, 0.1)' : 'rgba(0, 0, 0, 0.05)'}, transparent 40%)`,
-                }}
-            />
-            <div className="relative h-full z-10">
-                {children}
-            </div>
-        </div>
-    );
-};
-
-// INPUT FIELD
-interface CreativeInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    icon: any;
-    isDark: boolean;
-}
-
-const CreativeInput = ({ icon: Icon, isDark, className, ...props }: CreativeInputProps) => {
+// 🔥 UI: CURVED GLASS INPUT
+const CurvedInput = ({ icon: Icon, isDark, className, ...props }: any) => {
     return (
         <div className="relative group mb-4">
-            <Icon 
-                className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 transition-colors size-5",
-                    isDark ? "text-white/40 group-focus-within:text-cyan-400" : "text-neutral-400 group-focus-within:text-black"
-                )} 
-            />
+            <div className={cn("absolute left-5 top-1/2 -translate-y-1/2 transition-colors z-10", 
+                isDark ? "text-white/40 group-focus-within:text-white" : "text-black/40 group-focus-within:text-black"
+            )}>
+                <Icon size={18} />
+            </div>
             <input 
-                className={cn(
-                    "w-full bg-transparent border-b py-4 pl-8 focus:outline-none transition-colors font-medium",
+                className={cn("w-full py-4 pl-14 pr-6 rounded-3xl text-sm font-medium outline-none transition-all border", 
                     isDark 
-                        ? "text-white border-white/10 placeholder:text-white/20 focus:border-cyan-500" 
-                        : "text-neutral-900 border-neutral-300 placeholder:text-neutral-400 focus:border-black",
+                        ? "bg-white/5 border-white/5 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-white/20 focus:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" 
+                        : "bg-white border-transparent text-black placeholder:text-black/30 focus:border-black/10 focus:shadow-lg disabled:bg-gray-100 disabled:opacity-70",
                     className
-                )}
-                {...props}
+                )} 
+                {...props} 
             />
-            <div className={cn(
-                "absolute bottom-0 left-0 w-0 h-[1px] transition-all duration-500 group-focus-within:w-full",
-                isDark ? "bg-cyan-500" : "bg-black"
-            )} />
         </div>
     )
 }
-
-// --- 2. MAIN LOGIC ---
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { auth, db } = useFirebase();
-  const roleFromQuery = searchParams.get('role') || 'user'
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null); 
   
+  const roleFromQuery = searchParams.get('role') === 'admin' ? 'admin' : 'user';
   const [step, setStep] = useState<'login' | 'details' | 'otp'>('login');
-  const [identifier, setIdentifier] = useState(searchParams.get('phone') || '');
+  const [identifier, setIdentifier] = useState(searchParams.get('email') || '');
   const [inputType, setInputType] = useState<'email' | 'phone' | 'none'>('none');
-  
-  const [password, setPassword] = useState('')
-  const [otp, setOtp] = useState('')
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
+  // DETAILS STATE
+  const [detailsEmail, setDetailsEmail] = useState('');
+  const [detailsPhone, setDetailsPhone] = useState('');
+
+  const [otp, setOtp] = useState('')
+  const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [timer, setTimer] = useState(0); 
+  
   const [name, setName] = useState('')
   const [gender, setGender] = useState('')
   const [dob, setDob] = useState('')
+  const [referralCode, setReferralCode] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  
   const [adminId, setAdminId] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+  
   const [isLoading, setIsLoading] = useState(false)
   const [isMounted, setIsMounted] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  
   const [isDarkMode, setIsDarkMode] = useState(true); 
-  
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    let interval: NodeJS.Timeout;
+    if (timer > 0) interval = setInterval(() => { setTimer((prev) => prev - 1); }, 1000);
+    return () => clearInterval(interval);
+  }, [timer]);
 
   useEffect(() => {
-    if (identifier.includes('@')) {
-      setInputType('email');
-    } else if (/^\d{1,10}$/.test(identifier)) {
-      setInputType('phone');
-    } else {
-      setInputType('none');
+    if (step === 'login') {
+      if (identifier.includes('@')) setInputType('email');
+      else if (/^\d{1,10}$/.test(identifier)) setInputType('phone');
+      else setInputType('none');
     }
-  }, [identifier]);
+  }, [identifier, step]);
 
-  // --- AUTH HANDLERS ---
+  // 🔥 LISTENER: Auto-fill Email from Auth
+  useEffect(() => {
+    if (auth) {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const email = user.email || user.providerData?.[0]?.email;
+                if (email) {
+                    setDetailsEmail(email);
+                    if(step === 'details') setInputType('email');
+                }
+            }
+        });
+        return () => unsubscribe();
+    }
+  }, [auth, step]);
+
+  // --- GATEKEEPER ---
+  const checkAndDirectUser = (userData: any, email: string, phone: string, userName: string) => {
+      const finalEmail = email || userData.email || auth?.currentUser?.email || "";
+      const finalPhone = phone || userData.phone || "";
+
+      const isProfileComplete = 
+          userData.gender && 
+          userData.dob && 
+          userData.name && 
+          (finalEmail !== "") &&
+          (finalPhone !== "");
+
+      if (isProfileComplete) {
+          const sessionData = { 
+            role: 'user', 
+            phone: finalPhone,
+            email: finalEmail,
+            name: userData.name, 
+            userId: userData.id, 
+            gender: userData.gender 
+          };
+          localStorage.setItem('curocity-session', JSON.stringify(sessionData));
+          toast.success("Welcome back!");
+          router.push('/user');
+      } else {
+          setDetailsEmail(finalEmail);
+          setDetailsPhone(finalPhone);
+          setName(userData.name || userName || "");
+          if (userData.gender) setGender(userData.gender);
+          if (userData.dob) setDob(userData.dob);
+
+          toast.info("Please complete your registration.");
+          setStep('details');
+      }
+  }
+
+  // --- GOOGLE SIGN IN ---
+  const handleGoogleSignIn = async () => {
+    if (!auth) return;
+    setIsLoading(true);
+    const provider = new GoogleAuthProvider();
+    provider.addScope('email'); 
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const email = user.email || user.providerData?.[0]?.email || "";
+
+        if (db) {
+            const q = query(collection(db, "users"), where("email", "==", email));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                checkAndDirectUser(querySnapshot.docs[0].data(), email, "", user.displayName || "");
+            } else {
+                setDetailsEmail(email); 
+                setInputType('email');
+                setName(user.displayName || "");
+                toast.success("Verified! Step 2: Complete Details.");
+                setStep('details'); 
+            }
+        }
+    } catch (error: any) {
+        console.error(error);
+        toast.error("Google Sign-In Failed");
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
+  // --- SEND CODE ---
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (timer > 0) return; 
+    setIsLoading(true);
+
+    if (inputType === 'phone') {
+        if (!auth || !recaptchaContainerRef.current) return;
+        try {
+            if (!(window as any).recaptchaVerifier) {
+                (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, { size: 'invisible' });
+            }
+            const fullPhoneNumber = `+91${identifier}`; 
+            const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, (window as any).recaptchaVerifier);
+            setConfirmationResult(confirmation);
+            toast.success("SMS sent to " + fullPhoneNumber);
+            setStep('otp');
+            setTimer(60); 
+        } catch (error: any) {
+            toast.error(error.message || "Failed to send SMS");
+        }
+    } else if (inputType === 'email') {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedOtp(code);
+        const templateParams = { user_email: identifier, otp: code, user_name: "Future User" };
+        try {
+            await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY);
+            toast.success("OTP sent to " + identifier);
+            setStep('otp');
+            setTimer(60); 
+        } catch (error) {
+            toast.error("Failed to send Email. Check Keys.");
+        }
+    } else {
+        toast.error("Invalid Email or Phone Number");
+    }
+    setIsLoading(false);
+  }
+
+  // --- VERIFY CODE ---
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    let isVerified = false;
+
+    if (inputType === 'phone') {
+        if (!confirmationResult) return;
+        try {
+            await confirmationResult.confirm(otp);
+            isVerified = true;
+        } catch (error) {
+            toast.error("Invalid SMS Code");
+            setIsLoading(false);
+            return;
+        }
+    } else {
+        if (otp === generatedOtp) isVerified = true;
+        else { toast.error("Wrong Email OTP"); setIsLoading(false); return; }
+    }
+
+    if (isVerified) {
+        try {
+            if (!db) return;
+            const field = inputType === 'email' ? 'email' : 'phone';
+            const q = query(collection(db, "users"), where(field, "==", identifier));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const existingData = querySnapshot.docs[0].data();
+                checkAndDirectUser(
+                    existingData, 
+                    existingData.email || (inputType === 'email' ? identifier : ""),
+                    existingData.phone || (inputType === 'phone' ? identifier : ""),
+                    ""
+                );
+            } else {
+                if (inputType === 'email') {
+                    setDetailsEmail(identifier);
+                    setDetailsPhone("");
+                } else {
+                    setDetailsPhone(identifier);
+                    setDetailsEmail("");
+                }
+                toast.success("Verified! Step 2: Complete Details.");
+                setStep('details');
+            }
+        } catch (error) {
+            toast.error("Database Error");
+        }
+    }
+    setIsLoading(false);
+  }
+
+  // --- REGISTER ---
+  const handleRegister = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      let finalEmail = detailsEmail;
+      if (!finalEmail || finalEmail.trim() === "") {
+          if (auth?.currentUser?.email) finalEmail = auth.currentUser.email;
+      }
+      let finalPhone = detailsPhone;
+
+      if (!name || !gender || !dob || !finalPhone || !finalEmail) {
+          toast.error("Please fill all details including Email."); 
+          return;
+      }
+      if (!agreedToTerms) {
+          toast.error("Please agree to Terms & Conditions");
+          return;
+      }
+
+      setIsLoading(true);
+      
+      try {
+          const currentUser = auth?.currentUser;
+          const newId = currentUser?.uid || 'user_' + Math.random().toString(36).substr(2, 9);
+          
+          const newUser = {
+              id: newId,
+              name,
+              email: finalEmail,
+              phone: finalPhone,
+              gender,
+              dob,
+              referralCode: referralCode || null,
+              role: 'user',
+              createdAt: serverTimestamp(),
+              isOnline: true
+          };
+
+          if(db) {
+              await setDoc(doc(db, "users", newId), newUser, { merge: true });
+
+              if ((otp === "" || inputType === 'phone') && finalEmail && finalEmail.includes('@')) {
+                  const templateParams = {
+                      user_email: finalEmail,
+                      user_name: name,
+                      otp: "SUCCESS", 
+                  };
+                  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY)
+                    .catch((err) => console.log("Email error:", err));
+              }
+
+              const sessionData = { 
+                role: 'user', 
+                phone: finalPhone,
+                email: finalEmail,
+                name: name, 
+                userId: newId, 
+                gender: gender 
+              };
+              localStorage.setItem('curocity-session', JSON.stringify(sessionData));
+              toast.success("Welcome to Curocity!");
+              router.push('/user');
+          }
+      } catch (error) {
+          console.error("DB Error:", error);
+          toast.error("Registration Failed. Try Again.");
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   const handleAdminLogin = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setIsLoading(true);
@@ -188,292 +379,164 @@ export default function LoginPage() {
       }
   }
 
-  // ✅ UPDATED LOGIN LOGIC
-  const findAndSetSession = async (user: FirebaseUser) => {
-    if (!db || !auth) return false;
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-        const userData = userDoc.data();
-        
-        // 🔥 FIX: Update auth profile with name from database
-        if (userData.name && user.displayName !== userData.name) {
-            await updateProfile(user, { displayName: userData.name });
-        }
-
-        const sessionData = { role: 'user', phone: userData.phone, email: userData.email, name: userData.name, userId: user.uid, gender: userData.gender };
-        localStorage.setItem('curocity-session', JSON.stringify(sessionData));
-        toast.success("Login Successful");
-        router.push('/user');
-        return true;
-    }
-    
-    // If user exists in Auth but not DB, go to details page
-    if (user.displayName) setName(user.displayName);
-    if (user.email) setIdentifier(user.email);
-    if (user.phoneNumber) setIdentifier(user.phoneNumber.replace('+91', ''));
-    setStep('details'); 
-    return true; 
-  }
-
-  const handleIdentifierSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    if (inputType === 'email') await handleEmailSubmit();
-    else if (inputType === 'phone') await handlePhoneSubmit();
-    setIsLoading(false);
-  }
-
-  const handleEmailSubmit = async () => {
-    if (!auth || !db) return;
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, identifier, password);
-      await findAndSetSession(userCredential.user);
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') setStep('details');
-      else if (error.code === 'auth/wrong-password') toast.error('Incorrect Password');
-      else toast.error(error.message);
-    }
-  }
-
-  const handlePhoneSubmit = async () => {
-    if (!auth || !identifier || !recaptchaContainerRef.current) return;
-    try {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, { size: 'invisible' });
-        const fullPhoneNumber = `+91${identifier}`;
-        const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, window.recaptchaVerifier);
-        setConfirmationResult(confirmation);
-        setStep('otp');
-        toast.success('OTP Sent!');
-    } catch (error: any) {
-        toast.error('Failed to Send OTP');
-    }
-  }
-  
-  const handleOtpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      setIsLoading(true);
-      if (!confirmationResult || !otp) { setIsLoading(false); return };
-      try {
-          const result = await confirmationResult.confirm(otp);
-          await findAndSetSession(result.user);
-      } catch (error: any) {
-          toast.error('Invalid OTP');
-      } finally {
-          setIsLoading(false);
-      }
-  }
-
-  const handleDetailsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!name || !gender || !dob || (inputType === 'email' && !password)) {
-          toast.error("Incomplete Form"); return;
-      }
-      if (!db || !auth) return;
-      setIsLoading(true);
-      try {
-          let user = auth.currentUser;
-          if (!user && inputType === 'email') {
-              user = (await createUserWithEmailAndPassword(auth, identifier, password)).user;
-          }
-          if (!user) throw new Error("Authentication failed.");
-          
-          // 🔥 FIX: Update profile displayName on creation
-          await updateProfile(user, { displayName: name });
-
-          const newUserRef = doc(db, "users", user.uid);
-          const dataToSave = {
-              id: user.uid, name, email: user.email || (inputType === 'email' ? identifier : null),
-              phone: user.phoneNumber ? user.phoneNumber.replace('+91','') : (inputType === 'phone' ? identifier : null),
-              gender, dob, role: 'user', createdAt: serverTimestamp(), isOnline: false,
-          };
-          await setDoc(newUserRef, dataToSave);
-          localStorage.setItem('curocity-session', JSON.stringify({ role: 'user', ...dataToSave, userId: user.uid }));
-          toast.success("Account Created!");
-          router.push('/user');
-      } catch (error: any) {
-          if (error.code === 'auth/email-already-in-use') { toast.error('Email in use'); setStep('login'); }
-          else toast.error('Registration Failed');
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (!auth || !db) return;
-    setIsLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-        const result = await signInWithPopup(auth, provider);
-        await findAndSetSession(result.user);
-    } catch (error: any) {
-        toast.error('Google Sign-In Failed');
-    } finally {
-        setIsLoading(false);
-    }
-  }
-
   if (!isMounted) return null;
 
   return (
-    <div className={cn(
-        "fixed inset-0 w-full h-full flex items-center justify-center overflow-y-auto selection:bg-cyan-500 selection:text-black transition-colors duration-500",
-        // Light Mode: Light Gray background to make White Card Pop
-        isDarkMode ? "bg-black text-white" : "bg-neutral-100 text-neutral-900"
-    )}>
+    // 🔥 FIX 1: Layout Changed from 'fixed' to 'min-h-screen' to allow scrolling on small screens/keyboards
+    <div className={cn("min-h-screen w-full flex items-center justify-center p-4 transition-colors duration-700", isDarkMode ? "bg-[#050505] text-white" : "bg-[#f2f4f7] text-neutral-900")}>
       
       <div id="recaptcha-container" ref={recaptchaContainerRef} />
-      <NoiseOverlay />
+      
+      <DeepBackground isDark={isDarkMode} />
 
-      {/* THEME TOGGLE */}
       <div className="absolute top-6 right-6 z-50">
-        <button 
-            onClick={() => setIsDarkMode(!isDarkMode)} 
-            className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-full border backdrop-blur transition-all shadow-sm",
-                isDarkMode ? "border-white/20 bg-white/10 hover:bg-white/20 text-white" : "border-neutral-300 bg-white/50 hover:bg-white text-neutral-900"
-            )}
-        >
+        <button onClick={() => setIsDarkMode(!isDarkMode)} className={cn("w-12 h-12 flex items-center justify-center rounded-full backdrop-blur-md border transition-all hover:scale-110 shadow-lg", isDarkMode ? "border-white/10 bg-white/5 text-white" : "border-black/5 bg-white text-black")}>
             {isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}
         </button>
       </div>
 
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-          {/* Image with fallback */}
-          <img 
-              src="https://images.unsplash.com/photo-1495527870239-c2c349e44950?q=80&w=2070" 
-              alt="bg" 
-              className={cn("absolute inset-0 w-full h-full object-cover transition-opacity duration-500", isDarkMode ? "opacity-40" : "opacity-10 grayscale")}
-              onError={(e) => e.currentTarget.style.display = 'none'}
-          />
-          
-          <video 
-              autoPlay loop muted playsInline 
-              className={cn(
-                  "absolute inset-0 w-full h-full object-cover transition-all duration-500",
-                  // Light mode: Just standard opacity, no weird blend modes that turn things grey
-                  isDarkMode ? "opacity-30 mix-blend-screen" : "opacity-10"
-              )}
-              src="https://cdn.coverr.co/videos/coverr-driving-through-the-city-at-night-4304/1080p.mp4" 
-          />
-          
-          {/* Gradient Overlay - IMPROVED */}
-          <div className={cn(
-              "absolute inset-0 bg-gradient-to-t transition-colors duration-500",
-              // Light Mode: White fade from bottom to keep top visible
-              isDarkMode ? "from-black via-black/50 to-black/80" : "from-white/80 via-white/40 to-transparent"
-          )} />
-      </div>
-
-      {/* CONTENT WRAPPER */}
-      <div className="w-full max-w-md px-6 relative z-10 my-auto py-10">
-        
-        <Link href="/" className={cn("inline-flex items-center gap-2 mb-8 transition-colors group font-medium uppercase tracking-wider text-xs", isDarkMode ? "text-white/50 hover:text-white" : "text-neutral-500 hover:text-black")}>
-            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+      <div className="w-full max-w-md relative z-10 py-10">
+        <Link href="/" className={cn("inline-flex items-center gap-2 mb-8 transition-all group font-medium text-xs tracking-wider opacity-60 hover:opacity-100", isDarkMode ? "text-white" : "text-black")}>
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span>Back to City</span>
         </Link>
 
-        <SpotlightCard isDark={isDarkMode} className="p-8 md:p-10">
+        {/* 🔥 CURVED GLASS CARD */}
+        <div className={cn("relative rounded-[3rem] overflow-hidden backdrop-blur-2xl border shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] p-8 md:p-12 transition-all duration-500", 
+            isDarkMode ? "bg-white/5 border-white/10" : "bg-white/70 border-white/50"
+        )}>
             
-            <div className="text-center mb-8">
-                <h1 className={cn("text-3xl md:text-4xl font-black tracking-tighter mb-2", isDarkMode ? "text-white" : "text-black")}>
-                    {roleFromQuery === 'admin' ? 'ADMIN.' : 'CURO.'}
-                </h1>
-                <p className={cn("text-sm", isDarkMode ? "text-white/50" : "text-neutral-500")}>
-                    {step === 'otp' ? `Code sent to +91 ${identifier}` : 
-                     step === 'details' ? 'Complete your profile.' : 
-                     'Enter the ecosystem.'}
+            <div className="text-center mb-10">
+                <motion.h1 
+                    animate={{ 
+                        filter: isDarkMode ? ["brightness(1)", "brightness(1.2)", "brightness(1)"] : ["brightness(1)", "brightness(0.8)", "brightness(1)"],
+                        scale: [1, 1.01, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    className={cn("text-5xl font-black tracking-tighter mb-3", isDarkMode ? "text-white" : "text-neutral-900")}
+                >
+                    {roleFromQuery === 'admin' ? 'ADMIN.' : 'CUROCITY.'}
+                </motion.h1>
+                <p className={cn("text-sm font-medium tracking-wide", isDarkMode ? "text-white/40" : "text-neutral-500")}>
+                    {step === 'otp' ? `Code sent to ${identifier}` : step === 'details' ? 'One last step.' : 'Enter the ecosystem.'}
                 </p>
             </div>
 
             <AnimatePresence mode="wait">
                 {roleFromQuery === 'admin' ? (
-                    <motion.form key="admin" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleAdminLogin}>
-                        <CreativeInput isDark={isDarkMode} icon={Mail} placeholder="admin@curocity.com" value={adminId} onChange={(e: any) => setAdminId(e.target.value)} disabled={isLoading} />
-                        <CreativeInput isDark={isDarkMode} icon={Lock} type="password" placeholder="Access Key" value={adminPassword} onChange={(e: any) => setAdminPassword(e.target.value)} disabled={isLoading} />
-                        <button type="submit" disabled={isLoading} className={cn("w-full h-12 rounded-full font-bold mt-4 flex items-center justify-center gap-2 transition-colors shadow-lg", isDarkMode ? "bg-white text-black hover:bg-cyan-400" : "bg-black text-white hover:bg-neutral-800")}>
+                    <motion.form key="admin" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} onSubmit={handleAdminLogin}>
+                        <CurvedInput isDark={isDarkMode} icon={Mail} placeholder="admin@curocity.com" value={adminId} onChange={(e: any) => setAdminId(e.target.value)} disabled={isLoading} />
+                        <CurvedInput isDark={isDarkMode} icon={Lock} type="password" placeholder="Access Key" value={adminPassword} onChange={(e: any) => setAdminPassword(e.target.value)} disabled={isLoading} />
+                        <button type="submit" disabled={isLoading} className={cn("w-full h-14 rounded-full font-bold mt-4 flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]", isDarkMode ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/90")}>
                             {isLoading ? <Loader2 className="animate-spin" /> : 'ACCESS PANEL'}
                         </button>
                     </motion.form>
                 ) : step === 'login' ? (
-                    <motion.form key="login" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleIdentifierSubmit}>
-                        <CreativeInput isDark={isDarkMode} icon={inputType === 'phone' ? Phone : Mail} placeholder="Phone or Email" value={identifier} onChange={(e: any) => {
-                                const val = e.target.value;
-                                if(/^\d*$/.test(val) && val.length <= 10) setIdentifier(val);
-                                else if (val.includes('@') || /[a-zA-Z]/.test(val)) setIdentifier(val);
-                            }} disabled={isLoading} />
-                        {inputType === 'email' && (
-                            <CreativeInput isDark={isDarkMode} icon={Lock} type="password" placeholder="Password" value={password} onChange={(e: any) => setPassword(e.target.value)} disabled={isLoading} />
-                        )}
-                        <button type="submit" disabled={isLoading || identifier.length < 3} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} className={cn("w-full h-12 rounded-full font-bold mt-6 flex items-center justify-center gap-2 transition-colors relative overflow-hidden shadow-lg", isDarkMode ? "bg-white text-black hover:bg-cyan-400" : "bg-black text-white hover:bg-neutral-800")}>
-                            <span className="relative z-10">{isLoading ? <Loader2 className="animate-spin" /> : (inputType === 'phone' ? 'SEND CODE' : 'CONTINUE')}</span>
-                            {!isLoading && <ArrowRight size={18} className={`relative z-10 transition-transform duration-300 ${isHovered ? "translate-x-1" : ""}`} />}
+                    <motion.form key="login" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} onSubmit={handleSendCode}>
+                        <CurvedInput isDark={isDarkMode} icon={inputType === 'phone' ? Phone : Mail} placeholder="Email or Phone" value={identifier} onChange={(e: any) => setIdentifier(e.target.value)} disabled={isLoading} />
+                        
+                        <button type="submit" disabled={isLoading || identifier.length < 3} className={cn("w-full h-14 rounded-full font-bold mt-4 flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]", isDarkMode ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/90")}>
+                            {isLoading ? <Loader2 className="animate-spin" /> : (
+                                <>
+                                    <span>SEND CODE</span>
+                                    <ArrowRight size={18} />
+                                </>
+                            )}
                         </button>
-                        <div className="flex items-center gap-4 my-6">
-                            <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/10" : "bg-neutral-200")} />
-                            <span className={cn("text-xs font-mono uppercase", isDarkMode ? "text-white/30" : "text-neutral-400")}>OR</span>
-                            <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/10" : "bg-neutral-200")} />
+
+                        <div className="flex items-center gap-4 my-8">
+                            <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/10" : "bg-black/10")} />
+                            <span className={cn("text-[10px] font-bold uppercase tracking-widest", isDarkMode ? "text-white/30" : "text-black/30")}>OR</span>
+                            <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/10" : "bg-black/10")} />
                         </div>
-                        <button type="button" onClick={handleGoogleSignIn} disabled={isLoading} className={cn("w-full h-12 rounded-full border flex items-center justify-center gap-3 transition-all group font-medium", isDarkMode ? "border-white/20 bg-white/5 hover:bg-white/10 text-white" : "border-neutral-200 bg-transparent hover:bg-neutral-50 text-neutral-700")}>
-                            <Chrome size={20} className={cn("group-hover:scale-110 transition-transform", isDarkMode ? "text-white" : "text-black")} />
-                            <span className="text-sm">Google Account</span>
+
+                        <button type="button" onClick={handleGoogleSignIn} disabled={isLoading} className={cn("w-full h-14 rounded-full border flex items-center justify-center gap-3 transition-all font-semibold hover:scale-[1.02] active:scale-[0.98]", isDarkMode ? "border-white/10 bg-white/5 hover:bg-white/10 text-white" : "border-black/10 bg-white/50 hover:bg-white/80 text-black")}>
+                            <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
+                            <span className="text-sm">Continue with Google</span>
                         </button>
                     </motion.form>
                 ) : step === 'otp' ? (
-                    <motion.form key="otp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleOtpSubmit}>
-                        <div className="text-center mb-6">
-                            <input type="tel" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} className={cn("w-full bg-transparent border-b-2 text-center text-4xl font-mono tracking-[0.5em] py-4 focus:outline-none transition-colors", isDarkMode ? "border-white/20 text-white focus:border-cyan-500" : "border-neutral-300 text-black focus:border-black")} autoFocus />
+                    <motion.form key="otp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} onSubmit={handleVerifyCode}>
+                        <div className="text-center mb-8">
+                            <input type="text" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} className={cn("w-full bg-transparent border-b-2 text-center text-5xl font-mono tracking-[0.5em] py-4 focus:outline-none transition-colors", isDarkMode ? "border-white/20 text-white focus:border-white" : "border-black/20 text-black focus:border-black")} autoFocus placeholder="000000" />
                         </div>
-                        <button type="submit" disabled={isLoading} className={cn("w-full h-12 rounded-full font-bold mt-4 transition-colors shadow-lg", isDarkMode ? "bg-white text-black hover:bg-cyan-400" : "bg-black text-white hover:bg-neutral-800")}>
-                            {isLoading ? <Loader2 className="animate-spin mx-auto" /> : 'VERIFY'}
+                        <button type="submit" disabled={isLoading} className={cn("w-full h-14 rounded-full font-bold mt-4 transition-all shadow-lg active:scale-[0.98]", isDarkMode ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/90")}>
+                            {isLoading ? <Loader2 className="animate-spin mx-auto" /> : 'VERIFY & LOGIN'}
                         </button>
-                        <button type="button" onClick={() => setStep('login')} className={cn("w-full mt-4 text-xs hover:underline", isDarkMode ? "text-white/50 hover:text-white" : "text-neutral-500 hover:text-black")}>Change Number</button>
+                        
+                        <div className="text-center mt-6">
+                            {timer > 0 ? (
+                                <p className={cn("text-xs font-medium", isDarkMode ? "text-white/40" : "text-black/40")}>Resend code in <span className="font-mono">{timer}s</span></p>
+                            ) : (
+                                <button type="button" onClick={handleSendCode} className={cn("text-xs font-bold hover:underline uppercase tracking-wide", isDarkMode ? "text-white" : "text-black")}>Resend Code</button>
+                            )}
+                        </div>
+                        
+                        <button type="button" onClick={() => setStep('login')} className={cn("w-full mt-4 text-[10px] hover:underline opacity-50 hover:opacity-100 transition-opacity", isDarkMode ? "text-white" : "text-black")}>Changed your mind?</button>
                     </motion.form>
                 ) : (
-                    <motion.form key="details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleDetailsSubmit} className="space-y-2">
-                        <CreativeInput isDark={isDarkMode} icon={User} placeholder="Full Name" value={name} onChange={(e: any) => setName(e.target.value)} />
-                        {inputType === 'email' && !auth?.currentUser && (
-                             <CreativeInput isDark={isDarkMode} icon={Lock} type="password" placeholder="Create Password" value={password} onChange={(e: any) => setPassword(e.target.value)} />
-                        )}
-                        <CreativeInput isDark={isDarkMode} icon={Calendar} type="date" placeholder="Date of Birth" value={dob} onChange={(e: any) => setDob(e.target.value)} />
-                        <div className="flex gap-4 my-4 justify-center">
-                            {['male', 'female', 'other'].map((g) => (
-                                <label key={g} className={cn("cursor-pointer px-4 py-2 rounded-full border text-xs uppercase tracking-widest transition-all", 
-                                    gender === g 
-                                        ? (isDarkMode ? "bg-cyan-500 border-cyan-500 text-black font-bold" : "bg-black border-black text-white font-bold")
-                                        : (isDarkMode ? "border-white/20 text-white/50 hover:border-white/50" : "border-neutral-300 text-neutral-500 hover:border-neutral-500")
-                                )}>
-                                    <input type="radio" name="gender" value={g} checked={gender === g} onChange={(e) => setGender(e.target.value)} className="hidden" />
+                    // --- STEP 3: DETAILS ---
+                    <motion.form key="details" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} onSubmit={handleRegister}>
+                        <CurvedInput isDark={isDarkMode} icon={User} placeholder="Full Name" value={name} onChange={(e: any) => setName(e.target.value)} />
+                        
+                        {/* 🔥 FIX 2: Correct disabled logic - Only disable if it's from Auth (Google), otherwise Editable */}
+                        <CurvedInput 
+                            isDark={isDarkMode} 
+                            icon={Mail} 
+                            placeholder="Email Address" 
+                            value={detailsEmail || auth?.currentUser?.email || ""} 
+                            disabled={!!auth?.currentUser?.email} // ONLY DISABLE IF FROM GOOGLE
+                            onChange={(e: any) => setDetailsEmail(e.target.value)} 
+                        />
+
+                        <CurvedInput 
+                            isDark={isDarkMode} 
+                            icon={Phone} 
+                            placeholder="Mobile Number" 
+                            value={detailsPhone} 
+                            disabled={inputType === 'phone' && detailsPhone !== ''} 
+                            onChange={(e: any) => setDetailsPhone(e.target.value)} 
+                        />
+
+                        <div className="flex gap-3 mb-4">
+                            <CurvedInput className="mb-0" isDark={isDarkMode} icon={Calendar} type="date" placeholder="DOB" value={dob} onChange={(e: any) => setDob(e.target.value)} />
+                            <CurvedInput className="mb-0" isDark={isDarkMode} icon={User} placeholder="Referral Code" value={referralCode} onChange={(e: any) => setReferralCode(e.target.value)} />
+                        </div>
+
+                        <div className="flex gap-3 mb-6">
+                            {['Male', 'Female', 'Other'].map((g) => (
+                                <button type="button" key={g} onClick={() => setGender(g.toLowerCase())} className={cn("flex-1 py-4 rounded-3xl text-xs font-bold uppercase border transition-all backdrop-blur-md", gender === g.toLowerCase() ? (isDarkMode ? "bg-white text-black border-white" : "bg-black text-white border-black") : (isDarkMode ? "bg-white/5 border-white/10 text-white/60 hover:bg-white/10" : "bg-white/40 border-white/40 text-black/60 hover:bg-white/60"))}>
                                     {g}
-                                </label>
+                                </button>
                             ))}
                         </div>
-                        <button type="submit" disabled={isLoading} className={cn("w-full h-12 rounded-full font-bold mt-6 transition-colors shadow-lg", isDarkMode ? "bg-white text-black hover:bg-cyan-400" : "bg-black text-white hover:bg-neutral-800")}>
+
+                        <div onClick={() => setAgreedToTerms(!agreedToTerms)} className="flex items-center gap-3 cursor-pointer mb-6 justify-center">
+                            <div className={cn("transition-colors", agreedToTerms ? (isDarkMode ? "text-white" : "text-black") : (isDarkMode ? "text-white/20" : "text-black/20"))}>
+                                {agreedToTerms ? <CheckSquare size={20} /> : <Square size={20} />}
+                            </div>
+                            <p className={cn("text-xs select-none", isDarkMode ? "text-white/60" : "text-black/60")}>I agree to the <span className="underline font-bold">Terms</span>.</p>
+                        </div>
+
+                        <button type="submit" disabled={isLoading} className={cn("w-full h-14 rounded-full font-bold transition-all shadow-lg active:scale-[0.98]", isDarkMode ? "bg-white text-black hover:bg-white/90" : "bg-black text-white hover:bg-black/90")}>
                             {isLoading ? <Loader2 className="animate-spin mx-auto" /> : 'FINISH SETUP'}
                         </button>
                     </motion.form>
                 )}
             </AnimatePresence>
 
-            <div className="mt-8 text-center space-y-2">
+            <div className="mt-10 text-center">
                 {roleFromQuery === 'user' && (
-                    <p className={cn("text-xs", isDarkMode ? "text-white/40" : "text-neutral-500")}>
-                        Want to earn?{' '}
-                        <Link href="/partner-hub" className={cn("transition-colors border-b pb-0.5", isDarkMode ? "text-cyan-400 hover:text-cyan-300 border-cyan-400/30" : "text-blue-600 hover:text-blue-800 border-blue-600/30")}>
-                            Become a Partner
-                        </Link>
+                    <p className={cn("text-xs font-medium tracking-wide", isDarkMode ? "text-white/30" : "text-black/40")}>
+                        Want to earn?{' '} <Link href="/partner-hub" className={cn("border-b pb-0.5 hover:text-white transition-colors", isDarkMode ? "border-white/20" : "border-black/20 text-black")}>Become a Partner</Link>
                     </p>
                 )}
                 {roleFromQuery !== 'admin' && (
-                    <Link href="/login?role=admin" onClick={() => setStep('login')} className={cn("block text-[10px] uppercase tracking-widest mt-4", isDarkMode ? "text-white/20 hover:text-white" : "text-black/20 hover:text-black")}>
-                        Admin Access
-                    </Link>
+                    <Link href="/login?role=admin" onClick={() => setStep('login')} className={cn("block text-[10px] uppercase tracking-[0.2em] mt-4 opacity-20 hover:opacity-100 transition-opacity", isDarkMode ? "text-white" : "text-black")}>Admin Access</Link>
                 )}
             </div>
 
-        </SpotlightCard>
+        </div>
       </div>
     </div>
   );

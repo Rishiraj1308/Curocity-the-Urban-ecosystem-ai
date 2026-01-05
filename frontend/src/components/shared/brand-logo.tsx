@@ -9,7 +9,8 @@ interface BrandLogoProps {
   className?: string;
   size?: "sm" | "md" | "lg";
   withText?: boolean;
-  variant?: "glass" | "default"; // <-- added
+  hideText?: boolean; // ✅ Added this (To fix the error)
+  variant?: "glass" | "default";
 }
 
 export default function BrandLogo({
@@ -17,8 +18,13 @@ export default function BrandLogo({
   className,
   size = "md",
   withText = true,
-  variant = "default", // <-- default
+  hideText = false, // ✅ Added default value
+  variant = "default",
 }: BrandLogoProps) {
+  
+  // Logic: Text tabhi dikhega jab withText TRUE ho aur hideText FALSE ho
+  const showText = withText && !hideText;
+
   const iconSize =
     size === "sm" ? "w-6 h-6" : size === "lg" ? "w-12 h-12" : "w-8 h-8";
 
@@ -40,7 +46,9 @@ export default function BrandLogo({
       >
         <span className="font-black text-black text-lg">C</span>
       </div>
-      {withText && (
+      
+      {/* ✅ Updated Logic here */}
+      {showText && (
         <span className="font-bold text-xl tracking-tight">Curocity</span>
       )}
     </motion.div>

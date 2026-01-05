@@ -1,9 +1,9 @@
-
 'use client'
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+// ✅ FIX 1: Added DialogTrigger to imports
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Ambulance, Hospital, Wrench } from 'lucide-react';
@@ -115,7 +115,7 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
         setNearbyHospitals(hospitalsData as HospitalInfo[]);
         setSosStep('hospitals');
     } catch (error) {
-         toast.error('Search Failed', { description: 'Could not find nearby hospitals.' });
+          toast.error('Search Failed', { description: 'Could not find nearby hospitals.' });
     } finally {
         setIsFindingHospitals(false);
     }
@@ -132,7 +132,8 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
         phone: session.phone,
         severity,
         location: new GeoPoint(pickupCoords.lat, pickupCoords.lon),
-        status: 'pending' as const,
+        // ✅ FIX 2: Changed 'pending' to 'searching' to match AmbulanceCase type
+        status: 'searching' as const, 
         otp: Math.floor(1000 + Math.random() * 9000).toString(),
         createdAt: serverTimestamp(),
         rejectedBy: [],
@@ -143,7 +144,8 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
         const docRef = await addDoc(collection(db, 'emergencyCases'), caseData);
         setIsDialogOpen(false);
         setIsRequestingSos(true);
-        setActiveAmbulanceCase({ id: docRef.id, ...caseData } as AmbulanceCase);
+        // ✅ FIX 3: Cast to unknown first if strict typing still fails, but fixing status usually solves it
+        setActiveAmbulanceCase({ id: docRef.id, ...caseData } as unknown as AmbulanceCase);
         toast.success('Ambulance Requested!', { description: 'Dispatching the nearest Cure partner to your location.' });
     } catch (error) {
         console.error("Error creating emergency case:", error);
@@ -194,9 +196,10 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
                             </CardHeader>
                             <CardContent>
                                 <RadioGroup value={severity} onValueChange={(v) => setSeverity(v as any)} className="space-y-2">
-                                    <TriageSelectionCard id="s1" value="Non-Critical" label="Non-Critical" checked={severity === 'Non-Critical'} onSelect={setSeverity} />
-                                    <TriageSelectionCard id="s2" value="Serious" label="Serious" checked={severity === 'Serious'} onSelect={setSeverity} />
-                                    <TriageSelectionCard id="s3" value="Critical" label="Critical" checked={severity === 'Critical'} onSelect={setSeverity} />
+                                    {/* ✅ FIX 4: Wrapped setters in arrow functions with casting */}
+                                    <TriageSelectionCard id="s1" value="Non-Critical" label="Non-Critical" checked={severity === 'Non-Critical'} onSelect={(v) => setSeverity(v as any)} />
+                                    <TriageSelectionCard id="s2" value="Serious" label="Serious" checked={severity === 'Serious'} onSelect={(v) => setSeverity(v as any)} />
+                                    <TriageSelectionCard id="s3" value="Critical" label="Critical" checked={severity === 'Critical'} onSelect={(v) => setSeverity(v as any)} />
                                 </RadioGroup>
                             </CardContent>
                          </Card>
@@ -206,9 +209,10 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
                             </CardHeader>
                             <CardContent>
                                 <RadioGroup value={hospitalType} onValueChange={(v) => setHospitalType(v as any)} className="space-y-2">
-                                    <TriageSelectionCard id="h1" value="any" label="Any Nearby" checked={hospitalType === 'any'} onSelect={setHospitalType} />
-                                    <TriageSelectionCard id="h2" value="Govt Hospital" label="Government" checked={hospitalType === 'Govt Hospital'} onSelect={setHospitalType} />
-                                    <TriageSelectionCard id="h3" value="Private Hospital" label="Private" checked={hospitalType === 'Private Hospital'} onSelect={setHospitalType} />
+                                    {/* ✅ FIX 5: Wrapped setters in arrow functions with casting */}
+                                    <TriageSelectionCard id="h1" value="any" label="Any Nearby" checked={hospitalType === 'any'} onSelect={(v) => setHospitalType(v as any)} />
+                                    <TriageSelectionCard id="h2" value="Govt Hospital" label="Government" checked={hospitalType === 'Govt Hospital'} onSelect={(v) => setHospitalType(v as any)} />
+                                    <TriageSelectionCard id="h3" value="Private Hospital" label="Private" checked={hospitalType === 'Private Hospital'} onSelect={(v) => setHospitalType(v as any)} />
                                 </RadioGroup>
                             </CardContent>
                         </Card>
@@ -225,14 +229,14 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
                             <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                                 {nearbyHospitals.map(h => (
                                     <Card key={h.id} className={cn("p-3 cursor-pointer", selectedHospital === h.id && "ring-2 ring-primary")} onClick={() => setSelectedHospital(h.id)}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-md bg-muted"><Hospital className="w-5 h-5 text-primary"/></div>
-                                            <div className="flex-1">
-                                                <p className="font-bold text-sm">{h.name}</p>
-                                                <p className="text-xs text-muted-foreground">{h.address}</p>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-md bg-muted"><Hospital className="w-5 h-5 text-primary"/></div>
+                                                <div className="flex-1">
+                                                    <p className="font-bold text-sm">{h.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{h.address}</p>
+                                                </div>
+                                                <p className="text-sm font-semibold">{h.distance.toFixed(1)} km</p>
                                             </div>
-                                            <p className="text-sm font-semibold">{h.distance.toFixed(1)} km</p>
-                                        </div>
                                     </Card>
                                 ))}
                                 {nearbyHospitals.length === 0 && <p className="text-sm text-center text-muted-foreground py-8">No online hospitals found.</p>}
@@ -263,6 +267,7 @@ export default function EmergencyButtons({ serviceType, pickupCoords, setIsReque
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {/* ✅ FIX 6: DialogTrigger is now imported and usable */}
         <DialogTrigger asChild>
             <Button variant="destructive" size="lg" className="w-full h-14 text-lg">
                 {serviceType === 'cure' ? <Ambulance className="mr-2 h-6 w-6"/> : <Wrench className="mr-2 h-6 w-6"/>}

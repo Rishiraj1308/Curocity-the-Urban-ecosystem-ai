@@ -1,14 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ❌ STRICT MODE OFF — REQUIRED FOR LEAFLET
+  // Leaflet ke liye strict mode off (fine)
   reactStrictMode: false,
 
-  // Packages you want Next to transpile
+  // Packages to transpile
   transpilePackages: ["@studio-freight/lenis"],
-
-  compiler: {
-    swcMinify: true,
-  },
 
   images: {
     remotePatterns: [
@@ -21,7 +17,7 @@ const nextConfig = {
     ],
   },
 
-  // keep as-is if you already rely on this
+  // You knowingly disabled assumptions — fine for MVP
   typescript: {
     ignoreBuildErrors: true,
   },
